@@ -69,6 +69,14 @@ const slice = createSlice({
   name: 'blueprints',
   initialState,
   reducers: {
+    /** Agrega un punto al plano actual (broadcast RT). */
+    appendPoint(s, a) {
+      if (!s.current) return
+      const { author, name, point } = a.payload
+      if (s.current.author !== author || s.current.name !== name) return
+      if (!s.current.points) s.current.points = []
+      s.current.points.push(point)
+    },
     clearCurrent(s) {
       s.current = null
       s.blueprintStatus = 'idle'
@@ -208,7 +216,7 @@ const slice = createSlice({
   },
 })
 
-export const { clearCurrent, clearMutationErrors } = slice.actions
+export const { appendPoint, clearCurrent, clearMutationErrors } = slice.actions
 
 // ---------- Selectores ----------
 

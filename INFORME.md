@@ -1,6 +1,10 @@
-# Informe Lab P3 – React UI para Blueprints
+# Informe Lab P3 & P4 – React UI para Blueprints + Tiempo Real
 
 **Integrantes:** Nicolás Parrado, Juan Esteban Hernández
+
+## Video de demostración
+
+https://youtu.be/s22u0-INiNk
 
 ---
 
@@ -139,3 +143,49 @@ npm test        # pruebas
 npm run lint    # linter
 npm run build   # build de producción
 ```
+
+---
+
+# Lab P4 – Tiempo Real con Socket.IO
+
+## Qué se agregó
+
+En este lab se extendió la app del P3 para que varios usuarios puedan dibujar el mismo plano al mismo tiempo y verse los cambios en vivo, sin necesidad de recargar la página.
+
+Para eso se integró un servidor de Socket.IO (Node.js) que actúa como intermediario: cuando alguien agrega un punto en el canvas, ese punto se envía al servidor y el servidor lo reenvía a todos los que tengan el mismo plano abierto.
+
+## Cómo funciona
+
+Cada plano tiene su propia "sala" identificada por `blueprints.{autor}.{nombre}`. Cuando se abre un plano y se activa Socket.IO en el selector RT, el cliente se une a esa sala. A partir de ahí, cada punto que se dibuja se comparte con todos los que estén en la misma sala.
+
+En la interfaz se agregó un selector con tres opciones: **None** (sin tiempo real), **Socket.IO** y **STOMP**. Para este lab usamos Socket.IO.
+
+## Por qué Socket.IO
+
+Elegimos Socket.IO porque es más sencillo de levantar: solo necesita Node.js, no requiere configurar Spring ni Maven, y el backend de ejemplo del repo guía ya venía listo para usar. Para el caso de blueprints, donde los eventos son simples (un punto a la vez), funciona perfectamente.
+
+## Cómo correr el backend RT
+
+```bash
+git clone https://github.com/DECSIS-ECI/example-backend-socketio-node-
+cd example-backend-socketio-node-
+npm i
+npm run dev
+# queda corriendo en http://localhost:3001
+```
+
+Luego en el `.env` del front asegurarse de tener:
+
+```
+VITE_IO_BASE=http://localhost:3001
+```
+
+## Cómo probar la colaboración en vivo
+
+1. Tener el backend RT corriendo en `:3001`.
+2. Correr el front con `npm run dev`.
+3. Abrir `http://localhost:5173` en **dos pestañas**.
+4. En ambas: iniciar sesión, buscar el mismo autor, abrir el mismo plano con **Open**.
+5. En ambas: seleccionar **Socket.IO** en el selector RT y hacer clic en **Editar**.
+6. Dibujar en una pestaña — los puntos aparecen en la otra al instante.
+

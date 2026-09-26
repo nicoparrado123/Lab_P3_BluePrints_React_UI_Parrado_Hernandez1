@@ -5,7 +5,7 @@ import BlueprintCanvas from './BlueprintCanvas.jsx'
  * Muestra un blueprint en el lienzo y permite editarlo (click = nuevo punto),
  * guardarlo (PUT) o eliminarlo (DELETE). Las acciones reales llegan por props.
  */
-export default function BlueprintEditor({ blueprint, canWrite = true, onSave, onDelete, busy }) {
+export default function BlueprintEditor({ blueprint, canWrite = true, onSave, onDelete, onRtPoint, busy }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState([])
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -102,7 +102,14 @@ export default function BlueprintEditor({ blueprint, canWrite = true, onSave, on
       <BlueprintCanvas
         points={points}
         viewKey={key}
-        onAddPoint={editing ? (p) => setDraft((d) => [...d, p]) : undefined}
+        onAddPoint={
+          editing
+            ? (p) => {
+                setDraft((d) => [...d, p])
+                onRtPoint?.(p)
+              }
+            : undefined
+        }
       />
       {editing && (
         <p className="muted small">

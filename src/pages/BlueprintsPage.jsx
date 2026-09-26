@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link } from 'react-router-dom'
 import {
@@ -8,12 +8,15 @@ import {
   updateBlueprint,
   deleteBlueprint,
   clearMutationErrors,
+  appendPoint,
   selectTopBlueprints,
 } from '../features/blueprints/blueprintsSlice.js'
 import BlueprintEditor from '../components/BlueprintEditor.jsx'
 import BlueprintForm from '../components/BlueprintForm.jsx'
 import ErrorBanner from '../components/ErrorBanner.jsx'
+import RtSelector from '../components/RtSelector.jsx'
 import { getSession } from '../services/auth.js'
+import * as rt from '../services/rtService.js'
 
 export default function BlueprintsPage() {
   const dispatch = useDispatch()
@@ -38,6 +41,8 @@ export default function BlueprintsPage() {
   const [selectedAuthor, setSelectedAuthor] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [lastOpened, setLastOpened] = useState(null)
+  const [rtMode, setRtMode] = useState('none')
+  const rtCurrentRef = useRef(null)
   const items = useMemo(() => byAuthor[selectedAuthor] || [], [byAuthor, selectedAuthor])
 
   const totalPoints = useMemo(
@@ -52,15 +57,37 @@ export default function BlueprintsPage() {
     dispatch(fetchByAuthor(value))
   }, [authorInput, dispatch])
 
+  const onRtUpdate = useCallback((author, name) => (upd) => {
+    const pts = upd?.points ?? (upd?.point ? [upd.point] : [])
+    pts.forEach((point) => dispatch(appendPoint({ author, name, point })))
+  }, [dispatch])
+
   const openBlueprint = useCallback((bp) => {
     setLastOpened({ author: bp.author, name: bp.name })
     dispatch(fetchBlueprint({ author: bp.author, name: bp.name }))
+    rtCurrentRef.current = { author: bp.author, name: bp.name }
   }, [dispatch])
 
   const handleCreate = useCallback(async (blueprint) => {
     const result = await dispatch(createBlueprint(blueprint))
     if (createBlueprint.fulfilled.match(result)) setShowForm(false)
   }, [dispatch])
+
+  // Al cambiar modo RT o al cambiar el plano actual: reconecta.
+  useEffect(() => {
+    rt.setRtMode(rtMode)
+    if (rtMode !== 'none' && rtCurrentRef.current) {
+      const { author, name } = rtCurrentRef.current
+      rt.joinRoom(author, name, onRtUpdate(author, name))
+    }
+    return () => rt.leaveRoom()
+  }, [rtMode, onRtUpdate])
+
+  // Al abrir un plano con RT ya activo: únete a la nueva sala.
+  useEffect(() => {
+    if (!current || rtMode === 'none') return
+    rt.joinRoom(current.author, current.name, onRtUpdate(current.author, current.name))
+  }, [current?.author, current?.name, rtMode, onRtUpdate])
 
   const handleSave = useCallback((points) => {
     if (!current) return
@@ -75,6 +102,12 @@ export default function BlueprintsPage() {
   const mutationError =
     (updateError && `No se pudo guardar: ${updateError}. Se revirtió el cambio.`) ||
     (deleteError && `No se pudo eliminar: ${deleteError}. Se restauró el plano.`)
+
+  // Envía punto RT cuando el editor agrega uno en modo interactivo.
+  const handleRtPoint = useCallback((point) => {
+    if (!current || rtMode === 'none') return
+    rt.sendPoint(current.author, current.name, point)
+  }, [current, rtMode])
 
   return (
     <div className="layout">
@@ -213,11 +246,13 @@ export default function BlueprintsPage() {
         {(updateStatus === 'loading' || deleteStatus === 'loading') && (
           <p className="muted small">Sincronizando con el servidor...</p>
         )}
+        <RtSelector value={rtMode} onChange={setRtMode} />
         <BlueprintEditor
           blueprint={current}
           canWrite={canWrite}
           onSave={handleSave}
           onDelete={handleDelete}
+          onRtPoint={handleRtPoint}
         />
         {current && <p className="muted small">Puntos: {current.points?.length || 0}</p>}
       </section>
